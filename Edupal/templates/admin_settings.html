@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Admin - Subscription Fees{% endblock %}
+{% block page_title %}Change Subscription Fees{% endblock %}
+{% block content %}
+<div class="card p-4 mx-auto" style="max-width: 600px;">
+    <form method="POST" action="/admin/settings">
+        <div class="mb-3">
+            <label class="form-label">Basic Plan Price (₦)</label>
+            <input type="number" class="form-control" name="basic" value="{{ prices.get('basic_price', '30000') }}" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Silver Plan Price (₦)</label>
+            <input type="number" class="form-control" name="silver" value="{{ prices.get('silver_price', '50000') }}" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Gold Plan Price (₦)</label>
+            <input type="number" class="form-control" name="gold" value="{{ prices.get('gold_price', '70000') }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Prices</button>
+    </form>
+</div>
+{% endblock %}
