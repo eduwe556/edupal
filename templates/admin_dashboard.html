@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <div class="stat-card bg-primary">
+            <div class="number">{{ total_users }}</div>
+            <div class="label">Total Users</div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="stat-card bg-success">
+            <div class="number">{{ subscribed_users }}</div>
+            <div class="label">Subscribed Users</div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="stat-card bg-warning text-dark">
+            <div class="number">{{ trial_users }}</div>
+            <div class="label">Trial Users</div>
+        </div>
+    </div>
+</div>
+<div class="row mt-4">
+    <div class="col-md-4 mb-3">
+        <a href="/admin/users" class="btn btn-primary w-100">Manage Users</a>
+    </div>
+    <div class="col-md-4 mb-3">
+        <a href="/admin/announcements" class="btn btn-info w-100">Manage Announcements</a>
+    </div>
+    <div class="col-md-4 mb-3">
+        <a href="/admin/settings" class="btn btn-secondary w-100">Change Subscription Fees</a>
+    </div>
+</div>
+{% endblock %}

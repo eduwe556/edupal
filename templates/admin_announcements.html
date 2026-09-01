@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Admin - Announcements{% endblock %}
+{% block page_title %}Manage Announcements{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+    <a href="/admin/announcements/add" class="btn btn-primary"><i class="fas fa-plus me-2"></i> New Announcement</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if announcements %}
+            {% for ann in announcements %}
+            <div class="mb-3 p-3 border rounded">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="mb-1">{{ ann.title }}</h5>
+                        <p class="text-muted mb-1">{{ ann.created_at }}</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="/admin/announcements/edit/{{ ann.id }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></a>
+                        <a href="/admin/announcements/delete/{{ ann.id }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this announcement?');"><i class="fas fa-trash"></i></a>
+                    </div>
+                </div>
+                <p class="mt-2">{{ ann.content }}</p>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-center text-muted my-5">No announcements yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

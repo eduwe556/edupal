@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Attendance{% endblock %}
+{% block content %}
+<h2 class="mb-4">Attendance Records</h2>
+<a href="/attendance/mark" class="btn btn-primary mb-3"><i class="fas fa-clipboard-list me-2"></i> Mark Attendance</a>
+
+<div class="card">
+    <div class="card-body">
+        {% if records %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Student</th>
+                        <th>Class</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>{{ record.date }}</td>
+                        <td>{{ record.last_name }}, {{ record.first_name }}</td>
+                        <td>{{ record.class_name or 'N/A' }}</td>
+                        <td>
+                            {% if record.status == 'present' %}
+                                <span class="badge bg-success">Present</span>
+                            {% elif record.status == 'absent' %}
+                                <span class="badge bg-danger">Absent</span>
+                            {% elif record.status == 'late' %}
+                                <span class="badge bg-warning text-dark">Late</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ record.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-center text-muted my-5">No attendance records yet. Click "Mark Attendance" to start.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

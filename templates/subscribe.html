@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Subscribe{% endblock %}
+{% block page_title %}Choose a Plan{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <h3 class="mb-4">Select your subscription plan</h3>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card p-4 h-100">
+                    <h4>Basic</h4>
+                    <p class="text-muted">1 Term</p>
+                    <h2>₦30,000</h2>
+                    <p>Access for one term (3 months)</p>
+                    <form method="POST" action="/subscribe">
+                        <input type="hidden" name="plan" value="basic">
+                        <button type="submit" class="btn btn-primary w-100">Pay via Bank Transfer</button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-4 h-100">
+                    <h4>Silver</h4>
+                    <p class="text-muted">2 Terms</p>
+                    <h2>₦50,000</h2>
+                    <p>Access for two terms (6 months)</p>
+                    <form method="POST" action="/subscribe">
+                        <input type="hidden" name="plan" value="silver">
+                        <button type="submit" class="btn btn-primary w-100">Pay via Bank Transfer</button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-4 h-100">
+                    <h4>Gold</h4>
+                    <p class="text-muted">3 Terms</p>
+                    <h2>₦70,000</h2>
+                    <p>Access for three terms (9 months)</p>
+                    <form method="POST" action="/subscribe">
+                        <input type="hidden" name="plan" value="gold">
+                        <button type="submit" class="btn btn-primary w-100">Pay via Bank Transfer</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
