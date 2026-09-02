@@ -20,7 +20,7 @@ DEVELOPER_EMAIL = os.environ.get('DEVELOPER_EMAIL', 'your_email@example.com')
 
 MONNIFY_API_KEY = os.environ.get('MONNIFY_API_KEY', 'MK_TEST_XB68SA8MXA')
 MONNIFY_SECRET_KEY = os.environ.get('MONNIFY_SECRET_KEY', 'JJ4PXL7JVWN8ZSZDBCMY4JG8BQN4BKVD')
-MONNIFY_BASE_URL = os.environ.get('MONNIFY_BASE_URL', 'https://sandbox.monnify.com')
+MONNIFY_BASE_URL = os.environ.get('MONNIFY_BASE_URL', 'https://api.monnify.com')
 MONNIFY_CONTRACT_CODE = os.environ.get('MONNIFY_CONTRACT_CODE', '1153231557')
 
 def get_db():
