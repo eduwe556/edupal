@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Pending Payments{% endblock %}
+{% block page_title %}Pending Payment Approvals{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        {% if pending %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>School</th>
+                        <th>Email</th>
+                        <th>Plan</th>
+                        <th>Amount (₦)</th>
+                        <th>Reference</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pending %}
+                    <tr>
+                        <td>{{ p.id }}</td>
+                        <td>{{ p.school_name }}</td>
+                        <td>{{ p.email }}</td>
+                        <td>{{ p.plan }}</td>
+                        <td>{{ '{:,.2f}'.format(p.amount) }}</td>
+                        <td>{{ p.reference_text }}</td>
+                        <td>
+                            <a href="/admin/approve_payment/{{ p.id }}" class="btn btn-sm btn-success">Approve</a>
+                            <a href="/admin/reject_payment/{{ p.id }}" class="btn btn-sm btn-danger">Reject</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-center text-muted my-5">No pending payments.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

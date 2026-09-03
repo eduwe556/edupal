@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Admin - Add Announcement{% endblock %}
+{% block page_title %}Post Announcement{% endblock %}
+{% block content %}
+<div class="card p-4 mx-auto" style="max-width: 700px;">
+    <form method="POST" action="/admin/announcements/add">
+        <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" class="form-control" name="title" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Content</label>
+            <textarea class="form-control" name="content" rows="5" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Post Announcement</button>
+        <a href="/admin/announcements" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
