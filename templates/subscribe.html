@@ -5,58 +5,61 @@
 <div class="row justify-content-center">
     <div class="col-12 col-lg-10">
         <h3 class="mb-4">Select your subscription plan</h3>
-        <div class="row g-4 mb-4">
-            <div class="col-md-4">
-                <div class="card p-4 h-100">
-                    <h4>Basic</h4>
-                    <h2>₦{{ '{:,.0f}'.format(basic_price) }}</h2>
-                    <p>1 Term</p>
-                    <button class="btn btn-primary" data-plan="basic">Choose Basic</button>
+        <form method="POST" action="/subscribe" id="subscribeForm">
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <div class="card p-4 h-100">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="plan" id="planBasic" value="basic" required>
+                            <label class="form-check-label" for="planBasic">
+                                <h4>Basic</h4>
+                                <h2>₦{{ '{:,.0f}'.format(basic_price) }}</h2>
+                                <p>1 Term</p>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-4 h-100">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="plan" id="planSilver" value="silver">
+                            <label class="form-check-label" for="planSilver">
+                                <h4>Silver</h4>
+                                <h2>₦{{ '{:,.0f}'.format(silver_price) }}</h2>
+                                <p>2 Terms</p>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-4 h-100">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="plan" id="planGold" value="gold">
+                            <label class="form-check-label" for="planGold">
+                                <h4>Gold</h4>
+                                <h2>₦{{ '{:,.0f}'.format(gold_price) }}</h2>
+                                <p>3 Terms</p>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card p-4 h-100">
-                    <h4>Silver</h4>
-                    <h2>₦{{ '{:,.0f}'.format(silver_price) }}</h2>
-                    <p>2 Terms</p>
-                    <button class="btn btn-primary" data-plan="silver">Choose Silver</button>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card p-4 h-100">
-                    <h4>Gold</h4>
-                    <h2>₦{{ '{:,.0f}'.format(gold_price) }}</h2>
-                    <p>3 Terms</p>
-                    <button class="btn btn-primary" data-plan="gold">Choose Gold</button>
-                </div>
-            </div>
-        </div>
 
-        <div class="card p-4">
-            <h5>Bank Transfer Details</h5>
-            <p>Please transfer the exact amount to the account below, then fill the form.</p>
-            <div class="alert alert-info">
-                <p class="mb-1"><strong>Bank:</strong> {{ bank_details.bank_name }}</p>
-                <p class="mb-1"><strong>Account Number:</strong> {{ bank_details.bank_account }}</p>
-                <p class="mb-1"><strong>Account Name:</strong> {{ bank_details.bank_account_name }}</p>
-            </div>
-            <form method="POST" action="/subscribe">
-                <input type="hidden" name="plan" id="planInput" value="">
+            <div class="card p-4">
+                <h5>Bank Transfer Details</h5>
+                <p>Transfer the exact amount to the account below, then fill in the reference.</p>
+                <div class="alert alert-info">
+                    <p class="mb-1"><strong>Bank:</strong> {{ bank_details.bank_name }}</p>
+                    <p class="mb-1"><strong>Account Number:</strong> {{ bank_details.bank_account }}</p>
+                    <p class="mb-1"><strong>Account Name:</strong> {{ bank_details.bank_account_name }}</p>
+                </div>
                 <div class="mb-3">
                     <label class="form-label">Transfer Reference / Sender Name</label>
                     <input type="text" class="form-control" name="reference_text" required>
                 </div>
                 <button type="submit" class="btn btn-success">I have sent money</button>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 </div>
-<script>
-document.querySelectorAll('[data-plan]').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.getElementById('planInput').value = this.dataset.plan;
-        document.querySelector('form').scrollIntoView({behavior:'smooth'});
-    });
-});
-</script>
 {% endblock %}
