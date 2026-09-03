@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 DATABASE = 'edupal.db'
-DEVELOPER_EMAIL = os.environ.get('DEVELOPER_EMAIL', 'your_email@example.com')
+DEVELOPER_EMAIL = os.environ.get('DEVELOPER_EMAIL', 'taliatibrahim457@gmail.com')
 
 # Default bank details (will be inserted into settings if not present)
 DEFAULT_BANK_NAME = 'Moniepoint'
