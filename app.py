@@ -1,44 +1,91 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
+import os
+import psycopg2
+import psycopg2.extras
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import date, timedelta
-import os
 from functools import wraps
 import uuid
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
-DATABASE = 'edupal.db'
+DATABASE_URL = os.environ.get('DATABASE_URL')
+USING_POSTGRES = bool(DATABASE_URL)
+
+DATABASE = 'edupal.db'  # used only for SQLite
 DEVELOPER_EMAIL = os.environ.get('DEVELOPER_EMAIL', 'taliatibrahim457@gmail.com')
 
-# Default bank details (will be inserted into settings if not present)
+# Default bank details
 DEFAULT_BANK_NAME = 'Moniepoint'
 DEFAULT_BANK_ACCOUNT = '9016530108'
 DEFAULT_BANK_ACCOUNT_NAME = 'Taliat Ibrahim Olasunkanmi'
 
-def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+# ----------------- Database Wrapper for PostgreSQL -----------------
+class PostgresDB:
+    def __init__(self, conn, cur):
+        self.conn = conn
+        self.cur = cur
+    def execute(self, sql, params=()):
+        # Replace ? with %s for Postgres
+        sql = sql.replace('?', '%s')
+        self.cur.execute(sql, params)
+        return self.cur
+    def commit(self):
+        self.conn.commit()
+    def close(self):
+        self.cur.close()
+        self.conn.close()
 
+def get_db():
+    if USING_POSTGRES:
+        # Add sslmode=require if not present (Supabase requires SSL)
+        db_url = DATABASE_URL
+        if 'sslmode' not in db_url:
+            separator = '&' if '?' in db_url else '?'
+            db_url += f'{separator}sslmode=require'
+        conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.RealDictCursor)
+        cur = conn.cursor()
+        return PostgresDB(conn, cur)
+    else:
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+# ----------------- Table Creation -----------------
 def init_db():
     conn = get_db()
-    conn.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, school_name TEXT NOT NULL, admin_name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, plan TEXT DEFAULT "trial", subscription_start TEXT, subscription_end TEXT, student_add_count INTEGER DEFAULT 0, role TEXT DEFAULT "user")')
-    conn.execute('CREATE TABLE IF NOT EXISTS classes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (user_id) REFERENCES users (id))')
-    conn.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, first_name TEXT NOT NULL, last_name TEXT NOT NULL, parent_phone TEXT, parent_email TEXT, address TEXT, class_id INTEGER, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id))')
-    conn.execute('CREATE TABLE IF NOT EXISTS fee_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, amount REAL NOT NULL, payment_date TEXT DEFAULT CURRENT_DATE, note TEXT, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
-    conn.execute('CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT DEFAULT CURRENT_DATE, status TEXT NOT NULL, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
-    conn.execute('CREATE TABLE IF NOT EXISTS results (id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT NOT NULL, ca_score REAL, exam_score REAL, total REAL, grade TEXT, term TEXT, session TEXT, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
-    conn.execute('CREATE TABLE IF NOT EXISTS class_fees (id INTEGER PRIMARY KEY AUTOINCREMENT, class_id INTEGER NOT NULL, amount REAL NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id), UNIQUE(class_id, user_id))')
-    conn.execute('CREATE TABLE IF NOT EXISTS teachers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, class_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id))')
-    conn.execute('CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, reference TEXT UNIQUE NOT NULL, plan TEXT NOT NULL, amount REAL NOT NULL, status TEXT DEFAULT "pending", account_number TEXT, account_bank TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id))')
-    conn.execute('CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
-    conn.execute('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
-    conn.execute('CREATE TABLE IF NOT EXISTS pending_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, plan TEXT NOT NULL, amount REAL NOT NULL, reference_text TEXT, status TEXT DEFAULT "pending", created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id))')
-    conn.commit()
+    if USING_POSTGRES:
+        # PostgreSQL CREATE TABLE statements (SERIAL for auto increment)
+        conn.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, school_name TEXT NOT NULL, admin_name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, plan TEXT DEFAULT %s, subscription_start TEXT, subscription_end TEXT, student_add_count INTEGER DEFAULT 0, role TEXT DEFAULT %s)', ('trial', 'user'))
+        conn.execute('CREATE TABLE IF NOT EXISTS classes (id SERIAL PRIMARY KEY, name TEXT NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, first_name TEXT NOT NULL, last_name TEXT NOT NULL, parent_phone TEXT, parent_email TEXT, address TEXT, class_id INTEGER, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS fee_payments (id SERIAL PRIMARY KEY, amount REAL NOT NULL, payment_date TEXT DEFAULT CURRENT_DATE, note TEXT, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS attendance (id SERIAL PRIMARY KEY, date TEXT DEFAULT CURRENT_DATE, status TEXT NOT NULL, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS results (id SERIAL PRIMARY KEY, subject TEXT NOT NULL, ca_score REAL, exam_score REAL, total REAL, grade TEXT, term TEXT, session TEXT, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS class_fees (id SERIAL PRIMARY KEY, class_id INTEGER NOT NULL, amount REAL NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id), UNIQUE(class_id, user_id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS teachers (id SERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, class_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, reference TEXT UNIQUE NOT NULL, plan TEXT NOT NULL, amount REAL NOT NULL, status TEXT DEFAULT %s, account_number TEXT, account_bank TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id))', ('pending',))
+        conn.execute('CREATE TABLE IF NOT EXISTS announcements (id SERIAL PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        conn.execute('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+        conn.execute('CREATE TABLE IF NOT EXISTS pending_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, plan TEXT NOT NULL, amount REAL NOT NULL, reference_text TEXT, status TEXT DEFAULT %s, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id))', ('pending',))
+    else:
+        # SQLite CREATE TABLE statements (unchanged)
+        conn.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, school_name TEXT NOT NULL, admin_name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, plan TEXT DEFAULT "trial", subscription_start TEXT, subscription_end TEXT, student_add_count INTEGER DEFAULT 0, role TEXT DEFAULT "user")')
+        conn.execute('CREATE TABLE IF NOT EXISTS classes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, first_name TEXT NOT NULL, last_name TEXT NOT NULL, parent_phone TEXT, parent_email TEXT, address TEXT, class_id INTEGER, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS fee_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, amount REAL NOT NULL, payment_date TEXT DEFAULT CURRENT_DATE, note TEXT, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT DEFAULT CURRENT_DATE, status TEXT NOT NULL, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS results (id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT NOT NULL, ca_score REAL, exam_score REAL, total REAL, grade TEXT, term TEXT, session TEXT, student_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (student_id) REFERENCES students (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS class_fees (id INTEGER PRIMARY KEY AUTOINCREMENT, class_id INTEGER NOT NULL, amount REAL NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id), UNIQUE(class_id, user_id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS teachers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, class_id INTEGER NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, reference TEXT UNIQUE NOT NULL, plan TEXT NOT NULL, amount REAL NOT NULL, status TEXT DEFAULT "pending", account_number TEXT, account_bank TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id))')
+        conn.execute('CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        conn.execute('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+        conn.execute('CREATE TABLE IF NOT EXISTS pending_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, plan TEXT NOT NULL, amount REAL NOT NULL, reference_text TEXT, status TEXT DEFAULT "pending", created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id))')
 
-    # Insert default settings if not exists
+    # Insert default settings
     defaults = {
         'basic_price': '30000',
         'silver_price': '50000',
@@ -48,12 +95,16 @@ def init_db():
         'bank_account_name': DEFAULT_BANK_ACCOUNT_NAME
     }
     for key, val in defaults.items():
-        conn.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', (key, val))
+        if USING_POSTGRES:
+            conn.execute('INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', (key, val))
+        else:
+            conn.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', (key, val))
     conn.commit()
     conn.close()
 
 init_db()
 
+# Helper functions
 def get_subscription(user_id):
     conn = get_db()
     user = conn.execute('SELECT plan, subscription_start, subscription_end, student_add_count FROM users WHERE id = ?', (user_id,)).fetchone()
@@ -210,12 +261,12 @@ def subscribe():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     conn = get_db()
-    basic_price_row = conn.execute('SELECT value FROM settings WHERE key="basic_price"').fetchone()
-    silver_price_row = conn.execute('SELECT value FROM settings WHERE key="silver_price"').fetchone()
-    gold_price_row = conn.execute('SELECT value FROM settings WHERE key="gold_price"').fetchone()
-    bank_name = conn.execute('SELECT value FROM settings WHERE key="bank_name"').fetchone()
-    bank_account = conn.execute('SELECT value FROM settings WHERE key="bank_account"').fetchone()
-    bank_account_name = conn.execute('SELECT value FROM settings WHERE key="bank_account_name"').fetchone()
+    basic_price_row = conn.execute('SELECT value FROM settings WHERE key=?', ('basic_price',)).fetchone()
+    silver_price_row = conn.execute('SELECT value FROM settings WHERE key=?', ('silver_price',)).fetchone()
+    gold_price_row = conn.execute('SELECT value FROM settings WHERE key=?', ('gold_price',)).fetchone()
+    bank_name = conn.execute('SELECT value FROM settings WHERE key=?', ('bank_name',)).fetchone()
+    bank_account = conn.execute('SELECT value FROM settings WHERE key=?', ('bank_account',)).fetchone()
+    bank_account_name = conn.execute('SELECT value FROM settings WHERE key=?', ('bank_account_name',)).fetchone()
     conn.close()
     basic_price = float(basic_price_row['value']) if basic_price_row else 30000
     silver_price = float(silver_price_row['value']) if silver_price_row else 50000
@@ -237,7 +288,7 @@ def subscribe():
         amounts = {'basic': basic_price, 'silver': silver_price, 'gold': gold_price}
         amount = amounts[plan]
         conn = get_db()
-        conn.execute('INSERT INTO pending_subscriptions (user_id, plan, amount, reference_text, status) VALUES (?, ?, ?, ?, "pending")', (session['user_id'], plan, amount, reference_text))
+        conn.execute('INSERT INTO pending_subscriptions (user_id, plan, amount, reference_text, status) VALUES (?, ?, ?, ?, ?)', (session['user_id'], plan, amount, reference_text, 'pending'))
         conn.commit()
         conn.close()
         flash('Your payment has been submitted for approval. You will be notified once activated.', 'success')
@@ -253,9 +304,9 @@ def admin_pending_payments():
         SELECT pending_subscriptions.*, users.school_name, users.email
         FROM pending_subscriptions
         JOIN users ON pending_subscriptions.user_id = users.id
-        WHERE pending_subscriptions.status = "pending"
+        WHERE pending_subscriptions.status = ?
         ORDER BY pending_subscriptions.id DESC
-    ''').fetchall()
+    ''', ('pending',)).fetchall()
     conn.close()
     return render_template('admin_pending_payments.html', pending=pending)
 
@@ -266,7 +317,7 @@ def admin_approve_payment(payment_id):
     payment = conn.execute('SELECT * FROM pending_subscriptions WHERE id = ?', (payment_id,)).fetchone()
     if payment:
         activate_subscription(payment['user_id'], payment['plan'])
-        conn.execute('UPDATE pending_subscriptions SET status = "approved" WHERE id = ?', (payment_id,))
+        conn.execute('UPDATE pending_subscriptions SET status = ? WHERE id = ?', ('approved', payment_id))
         conn.commit()
         conn.close()
         flash('Payment approved and subscription activated.', 'success')
@@ -279,7 +330,7 @@ def admin_approve_payment(payment_id):
 @admin_required
 def admin_reject_payment(payment_id):
     conn = get_db()
-    conn.execute('UPDATE pending_subscriptions SET status = "rejected" WHERE id = ?', (payment_id,))
+    conn.execute('UPDATE pending_subscriptions SET status = ? WHERE id = ?', ('rejected', payment_id))
     conn.commit()
     conn.close()
     flash('Payment rejected.', 'info')
@@ -290,7 +341,7 @@ def admin_reject_payment(payment_id):
 @admin_required
 def admin_cancel_subscription(user_id):
     conn = get_db()
-    conn.execute('UPDATE users SET plan = "trial", subscription_start = NULL, subscription_end = NULL WHERE id = ?', (user_id,))
+    conn.execute('UPDATE users SET plan = ?, subscription_start = NULL, subscription_end = NULL WHERE id = ?', ('trial', user_id))
     conn.commit()
     conn.close()
     flash('Subscription cancelled.', 'success')
@@ -301,10 +352,10 @@ def admin_cancel_subscription(user_id):
 @admin_required
 def admin_dashboard():
     conn = get_db()
-    total_users = conn.execute('SELECT COUNT(*) FROM users WHERE role != "admin"').fetchone()[0]
-    subscribed_users = conn.execute('SELECT COUNT(*) FROM users WHERE role != "admin" AND plan != "trial"').fetchone()[0]
+    total_users = conn.execute('SELECT COUNT(*) FROM users WHERE role != ?', ('admin',)).fetchone()[0]
+    subscribed_users = conn.execute('SELECT COUNT(*) FROM users WHERE role != ? AND plan != ?', ('admin', 'trial')).fetchone()[0]
     trial_users = total_users - subscribed_users
-    pending_count = conn.execute('SELECT COUNT(*) FROM pending_subscriptions WHERE status = "pending"').fetchone()[0]
+    pending_count = conn.execute('SELECT COUNT(*) FROM pending_subscriptions WHERE status = ?', ('pending',)).fetchone()[0]
     conn.close()
     return render_template('admin_dashboard.html', total_users=total_users, subscribed_users=subscribed_users, trial_users=trial_users, pending_count=pending_count)
 
@@ -312,7 +363,7 @@ def admin_dashboard():
 @admin_required
 def admin_users():
     conn = get_db()
-    users = conn.execute('SELECT * FROM users WHERE role != "admin" ORDER BY id DESC').fetchall()
+    users = conn.execute('SELECT * FROM users WHERE role != ? ORDER BY id DESC', ('admin',)).fetchall()
     conn.close()
     return render_template('admin_users.html', users=users)
 
@@ -386,7 +437,10 @@ def admin_settings():
         bank_account = request.form.get('bank_account', '')
         bank_account_name = request.form.get('bank_account_name', '')
         for key, val in [('basic_price', basic), ('silver_price', silver), ('gold_price', gold), ('bank_name', bank_name), ('bank_account', bank_account), ('bank_account_name', bank_account_name)]:
-            conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, val))
+            if USING_POSTGRES:
+                conn.execute('INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', (key, val))
+            else:
+                conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, val))
         conn.commit()
         conn.close()
         flash('Settings updated!', 'success')
