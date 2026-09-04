@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+        from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
 import os
 import psycopg2
@@ -45,7 +45,7 @@ def get_db():
         if 'sslmode' not in db_url:
             separator = '&' if '?' in db_url else '?'
             db_url += f'{separator}sslmode=require'
-        conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.RealDictCursor)
+        conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.DictCursor)  # <-- Changed to DictCursor
         cur = conn.cursor()
         return PostgresDB(conn, cur)
     else:
