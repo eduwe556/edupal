@@ -1,4 +1,4 @@
-        from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
 import os
 import psycopg2
@@ -14,7 +14,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-producti
 DATABASE_URL = os.environ.get('DATABASE_URL')
 USING_POSTGRES = bool(DATABASE_URL)
 
-DATABASE = 'edupal.db'  # used only for SQLite
+DATABASE = 'edupal.db'
 DEVELOPER_EMAIL = os.environ.get('DEVELOPER_EMAIL', 'taliatibrahim457@gmail.com')
 
 # Default bank details
@@ -22,13 +22,11 @@ DEFAULT_BANK_NAME = 'Moniepoint'
 DEFAULT_BANK_ACCOUNT = '9016530108'
 DEFAULT_BANK_ACCOUNT_NAME = 'Taliat Ibrahim Olasunkanmi'
 
-# ----------------- Database Wrapper for PostgreSQL -----------------
 class PostgresDB:
     def __init__(self, conn, cur):
         self.conn = conn
         self.cur = cur
     def execute(self, sql, params=()):
-        # Replace ? with %s for Postgres
         sql = sql.replace('?', '%s')
         self.cur.execute(sql, params)
         return self.cur
@@ -40,12 +38,11 @@ class PostgresDB:
 
 def get_db():
     if USING_POSTGRES:
-        # Add sslmode=require if not present (Supabase requires SSL)
         db_url = DATABASE_URL
         if 'sslmode' not in db_url:
             separator = '&' if '?' in db_url else '?'
             db_url += f'{separator}sslmode=require'
-        conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.DictCursor)  # <-- Changed to DictCursor
+        conn = psycopg2.connect(db_url, cursor_factory=psycopg2.extras.DictCursor)
         cur = conn.cursor()
         return PostgresDB(conn, cur)
     else:
@@ -53,11 +50,9 @@ def get_db():
         conn.row_factory = sqlite3.Row
         return conn
 
-# ----------------- Table Creation -----------------
 def init_db():
     conn = get_db()
     if USING_POSTGRES:
-        # PostgreSQL CREATE TABLE statements (SERIAL for auto increment)
         conn.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, school_name TEXT NOT NULL, admin_name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, plan TEXT DEFAULT %s, subscription_start TEXT, subscription_end TEXT, student_add_count INTEGER DEFAULT 0, role TEXT DEFAULT %s)', ('trial', 'user'))
         conn.execute('CREATE TABLE IF NOT EXISTS classes (id SERIAL PRIMARY KEY, name TEXT NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (user_id) REFERENCES users (id))')
         conn.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, first_name TEXT NOT NULL, last_name TEXT NOT NULL, parent_phone TEXT, parent_email TEXT, address TEXT, class_id INTEGER, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id))')
@@ -71,7 +66,6 @@ def init_db():
         conn.execute('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
         conn.execute('CREATE TABLE IF NOT EXISTS pending_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, plan TEXT NOT NULL, amount REAL NOT NULL, reference_text TEXT, status TEXT DEFAULT %s, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id))', ('pending',))
     else:
-        # SQLite CREATE TABLE statements (unchanged)
         conn.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, school_name TEXT NOT NULL, admin_name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, plan TEXT DEFAULT "trial", subscription_start TEXT, subscription_end TEXT, student_add_count INTEGER DEFAULT 0, role TEXT DEFAULT "user")')
         conn.execute('CREATE TABLE IF NOT EXISTS classes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, user_id INTEGER NOT NULL, FOREIGN KEY (user_id) REFERENCES users (id))')
         conn.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, first_name TEXT NOT NULL, last_name TEXT NOT NULL, parent_phone TEXT, parent_email TEXT, address TEXT, class_id INTEGER, user_id INTEGER NOT NULL, FOREIGN KEY (class_id) REFERENCES classes (id), FOREIGN KEY (user_id) REFERENCES users (id))')
@@ -85,7 +79,6 @@ def init_db():
         conn.execute('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
         conn.execute('CREATE TABLE IF NOT EXISTS pending_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, plan TEXT NOT NULL, amount REAL NOT NULL, reference_text TEXT, status TEXT DEFAULT "pending", created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users (id))')
 
-    # Insert default settings
     defaults = {
         'basic_price': '30000',
         'silver_price': '50000',
@@ -104,7 +97,6 @@ def init_db():
 
 init_db()
 
-# Helper functions
 def get_subscription(user_id):
     conn = get_db()
     user = conn.execute('SELECT plan, subscription_start, subscription_end, student_add_count FROM users WHERE id = ?', (user_id,)).fetchone()
